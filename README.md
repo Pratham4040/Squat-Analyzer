@@ -23,12 +23,40 @@ The squat rep counter is driven by knee-angle thresholds, not by the classifier 
 
 ## Deep Learning architecture
 
-The current model is a sequence classifier:
+The project uses a sequence-based squat classifier built on top of pose landmarks from MediaPipe.
 
-- Input: `45 x 10` angle features per sample
-- Feature source: normalized pose landmarks from MediaPipe
-- Model type: trained Keras neural network saved as `.keras`
-- Post-processing: EMA smoothing + confidence thresholding
+### Input pipeline
+
+1. MediaPipe Pose detects body landmarks from the webcam.
+2. `live2.py` keeps 12 landmarks focused on the torso, hips, knees, ankles, heels, and feet.
+3. The skeleton is normalized by centering on the hips, rotating to reduce camera angle effects, and scaling by body size.
+4. Each frame is converted into 10 angle-based features.
+5. A sliding window of 45 frames is passed to the model.
+
+### Model structure
+
+The training notebook in `Colab/squat_classifier_final_1 (4).ipynb` contains three architecture variants:
+
+1. `1D CNN -> BiLSTM -> Multi-Head Self-Attention -> Dense classifier` with raw coordinates + 8 angle features.
+2. A deeper `1D CNN -> BiLSTM -> Multi-Head Self-Attention -> Dense classifier` variant with 10 angle features and a larger dense head.
+3. `TCN -> Feature Fusion -> Dense classifier` for an angle-only setup, using temporal convolution blocks and a lightweight classification head.
+
+The notebook shows the evolution of the model, and the final section is the compact angle-only version.
+
+In simple terms:
+
+- `1D CNN` learns short-term motion patterns from the pose sequence.
+- `BiLSTM` captures movement over time in both forward and backward directions.
+- `Multi-Head Self-Attention` helps the model focus on the most important frames in the squat sequence.
+- `Dense classifier` outputs probabilities for the 5 squat classes.
+
+### Live inference
+
+The live demo in `live2.py` uses the exported Keras model from `Squats_Model/` and applies:
+
+- feature scaling with `scaler_params (9).json`
+- EMA smoothing for more stable predictions
+- a confidence threshold before showing the final label
 
 Supporting files:
 
